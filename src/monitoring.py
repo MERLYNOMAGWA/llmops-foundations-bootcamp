@@ -1,7 +1,7 @@
 import re
 import time
+import json
 import logging
-import random
 
 logging.basicConfig(
     filename="monitoring.log",
@@ -9,36 +9,61 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+JSON_OUTPUT_FILE = "monitoring_results.jsonl"
+
 def detect_pii(text: str) -> bool:
-    """Return True if text contains email or phone number."""
+    """Return True if text contains email, phone, or credit card number."""
     email_pattern = r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
     phone_pattern = r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b'
-    return bool(re.search(email_pattern, text) or re.search(phone_pattern, text))
+    cc_pattern = r'\b(?:\d[ -]*?){13,16}\b'  
+    return bool(
+        re.search(email_pattern, text)
+        or re.search(phone_pattern, text)
+        or re.search(cc_pattern, text)
+    )
 
-def monitor_response(user_input: str, chatbot_response: str):
+def monitor_log_entry(entry: dict):
+    """Monitor one chatbot interaction log entry."""
     start_time = time.time()
+    result = {
+        "request_id": entry.get("request_id"),
+        "user_id": entry.get("user_id"),
+        "timestamp": entry.get("timestamp"),
+        "error": entry.get("error", False),
+        "tokens_in": entry.get("tokens_in", 0),
+        "tokens_out": entry.get("tokens_out", 0),
+        "latency_ms": None,
+        "pii_detected": False
+    }
 
     try:
-        time.sleep(random.uniform(0.1, 0.5))
-        latency = round((time.time() - start_time) * 1000, 2)  
+        time.sleep(0.1)
+        latency = round((time.time() - start_time) * 1000, 2)
+        result["latency_ms"] = latency
 
-        if detect_pii(chatbot_response):
-            logging.warning(f"Privacy Risk Detected in response: {chatbot_response}")
+        response = entry.get("model_response", "")
 
-        logging.info(f"Response OK | Latency: {latency}ms | User: {user_input} | Bot: {chatbot_response}")
+        if detect_pii(response):
+            result["pii_detected"] = True
+            logging.warning(f"PII detected in response: {response}")
+
+        if entry.get("error", False):
+            logging.error(f"Error in request {entry['request_id']}")
+        else:
+            logging.info(f"OK | Request {entry['request_id']} | Latency {latency}ms")
+
+        with open(JSON_OUTPUT_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(result) + "\n")
 
     except Exception as e:
-        logging.error(f"Error monitoring response: {str(e)}")
+        logging.error(f"Monitoring failed: {str(e)}")
 
 if __name__ == "__main__":
-    sample_logs = [
-        {"user": "What's my account balance?", "bot": "Your balance is $500."},
-        {"user": "Can I get support?", "bot": "Sure, contact us at help@company.com"},  
-        {"user": "Call me back", "bot": "We will reach you at 555-123-4567"}, 
-        {"user": "Hello", "bot": "Hi there! How can I help you?"}
-    ]
+    INPUT_FILE = "chat_logs.jsonl"
 
-    for log in sample_logs:
-        monitor_response(log["user"], log["bot"])
+    with open(INPUT_FILE, "r", encoding="utf-8") as f:
+        for line in f:
+            entry = json.loads(line.strip())
+            monitor_log_entry(entry)
 
-    print("✅ Monitoring complete. Check monitoring.log for details.")
+    print("✅ Monitoring complete. Check monitoring.log and monitoring_results.jsonl")
