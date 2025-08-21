@@ -1,0 +1,7 @@
+2025-08-21 10:11:59,905 - WARNING - PII detected in response: Email support at help@acme.example and we’ll assist.
+2025-08-21 10:11:59,932 - INFO - OK | Request r-001 | Latency 100.59ms
+2025-08-21 10:12:00,035 - WARNING - PII detected in response: Call us at 555-123-4567 for refunds.
+2025-08-21 10:12:00,035 - INFO - OK | Request r-002 | Latency 100.16ms
+2025-08-21 10:12:00,137 - ERROR - Error in request r-003
+2025-08-21 10:12:00,239 - WARNING - PII detected in response: Sure. Your card 4111 1111 1111 1111 ends with 1111.
+2025-08-21 10:12:00,239 - INFO - OK | Request r-004 | Latency 100.27ms
